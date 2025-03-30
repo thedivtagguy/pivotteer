@@ -3,6 +3,7 @@
   import { WebR } from 'webr';
   import Papa from 'papaparse';
 
+  import Logo from '$lib/assets/logo.webp'
   // Add type definitions for variables
   /** @type {WebR | null} */
   let webR = null;
@@ -104,13 +105,64 @@
       errorMessage = '';
       isLoading = true;
 
-      // Parse CSV file using PapaParse with proper file handling
+      // Read the file content first to detect the delimiter
+      const fileContent = await file.text();
+      
+      // Try to detect the delimiter by looking at the first line
+      const firstLine = fileContent.split('\n')[0];
+      let delimiter = ',';
+      if (firstLine.includes('\t')) {
+        delimiter = '\t';
+      } else if (firstLine.includes(';')) {
+        delimiter = ';';
+      }
+
+      // Parse CSV file using PapaParse with more flexible options
       Papa.parse(file, {
         header: true,
         dynamicTyping: true,
+        delimiter: delimiter,
+        skipEmptyLines: true,
+        transformHeader: (header) => header.trim(),
+        transform: (value) => value ? value.toString().trim() : '',
         complete: function(results) {
           if (results.errors.length > 0) {
-            errorMessage = `Error parsing CSV: ${results.errors[0].message}`;
+            // Provide more helpful error messages
+            const error = results.errors[0];
+            let errorMsg = 'Error parsing CSV: ';
+            
+            if (error.code === 'TooFewFields') {
+              errorMsg += `Row ${(error.row ?? 0) + 1} has fewer columns than expected. `;
+              errorMsg += `This might be due to missing delimiters or incorrect line endings. `;
+              errorMsg += `Please check if your CSV file is properly formatted.`;
+            } else if (error.code === 'TooManyFields') {
+              errorMsg += `Row ${(error.row ?? 0) + 1} has more columns than expected. `;
+              errorMsg += `This might be due to unescaped delimiters in your data. `;
+              errorMsg += `Please check if your CSV file is properly formatted.`;
+            } else {
+              errorMsg += error.message;
+            }
+            
+            errorMessage = errorMsg;
+            isLoading = false;
+            return;
+          }
+
+          if (!results.data || results.data.length === 0) {
+            errorMessage = 'The CSV file appears to be empty or contains no valid data.';
+            isLoading = false;
+            return;
+          }
+
+          // Validate that all rows have the same number of columns
+          const firstRowCols = Object.keys(results.data[0] || {}).length;
+          const inconsistentRows = results.data.filter(row => 
+            Object.keys(row).length !== firstRowCols
+          );
+
+          if (inconsistentRows.length > 0) {
+            errorMessage = `Found ${inconsistentRows.length} rows with inconsistent number of columns. `;
+            errorMessage += `Please check if your CSV file is properly formatted.`;
             isLoading = false;
             return;
           }
@@ -120,7 +172,7 @@
           isLoading = false;
         },
         error: function(error) {
-          errorMessage = `Error reading file: ${error.message}`;
+          errorMessage = `Error reading file: ${error.message}. Please check if the file is not corrupted.`;
           isLoading = false;
         }
       });
@@ -356,33 +408,37 @@
   }
 </script>
 
-<div class="flex h-screen bg-gray-100">
+<div class="flex h-[calc(90vh)] bg-white">
   <!-- Sidebar -->
-  <div class="w-96 bg-white border-r border-gray-200 overflow-y-auto">
-    <div class="p-4 border-b border-gray-200">
-      <h2 class="text-xl font-semibold text-gray-800">Pivotteer</h2>
-      <p class="text-sm text-gray-600">Transform your data between wide and long formats</p>
+  <div class="w-64 bg-white border-r border-black overflow-y-auto">
+    <div class="p-3 border-b border-black">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold tracking-tight">PIVOTTEER</h2>
+        <img src={Logo} alt="Pivotteer Logo" width="120" />
+
+      </div>
+      <p class="text-xs text-gray-600 mt-1">Transform data between wide and long formats</p>
     </div>
 
     {#if isLoading}
-      <div class="flex justify-center items-center p-8 bg-blue-50 text-blue-600">
-        <svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <div class="flex justify-center items-center p-3 bg-gray-50 text-black">
+        <svg class="animate-spin -ml-1 mr-1 h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <span>Processing...</span>
+        <span class="text-xs">Processing...</span>
       </div>
     {:else if errorMessage}
-      <div class="p-4 bg-red-50 border-l-4 border-red-500 text-red-700">
+      <div class="p-3 bg-red-50 border-l-2 border-red-500 text-red-700">
         <div class="flex">
           <div class="flex-shrink-0">
-            <svg class="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="h-3 w-3 text-red-500" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
             </svg>
           </div>
-          <div class="ml-3">
-            <p class="text-sm">{errorMessage}</p>
-            <button class="mt-2 text-sm font-medium text-red-600 hover:text-red-500 focus:outline-none" on:click={() => errorMessage = ''}>
+          <div class="ml-2">
+            <p class="text-[10px]">{errorMessage}</p>
+            <button class="mt-1 text-[10px] font-medium text-red-600 hover:text-red-500 focus:outline-none" on:click={() => errorMessage = ''}>
               Dismiss
             </button>
           </div>
@@ -390,67 +446,36 @@
       </div>
     {/if}
 
-    {#if !data || columns.length === 0}
-      <div 
-        class="p-4 {dragActive ? 'bg-blue-50' : 'bg-gray-50'} transition-colors duration-200 cursor-pointer"
-        on:dragenter={handleDragEnter}
-        on:dragleave={handleDragLeave}
-        on:dragover={handleDragOver}
-        on:drop={handleDrop}
-        on:click={() => document.getElementById('fileInput')?.click()}
-      >
-        <div class="text-center">
-          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-          </svg>
-          <p class="mt-1 text-sm text-gray-600">
-            Drag and drop a data file here, or click to select
-          </p>
-          <p class="mt-1 text-xs text-gray-500">
-            CSV, TSV, TXT supported
-          </p>
-        </div>
-        <input
-          type="file"
-          id="fileInput"
-          accept=".csv,.tsv,.txt,.json"
-          on:change={handleFileUpload}
-          class="hidden"
-        />
-      </div>
-    {:else}
-      <div class="p-4">
-       
-
-        <div class="space-y-4">
+    {#if data && columns.length > 0}
+      <div class="p-3 space-y-3">
+        <div class="grid grid-cols-1 gap-2">
           <button 
-            class="w-full p-4 border-2 rounded-lg transition-all duration-200 {pivotType === 'wider' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-200'}"
+            class="w-full border border-black transition-all duration-200 {pivotType === 'wider' ? 'bg-black text-white' : 'bg-white text-black'}"
             on:click={() => pivotType = 'wider'}
           >
-            <div class="flex items-center justify-between mb-2">
-              <h4 class="text-lg font-medium text-gray-900">Wide Format</h4>
-              <svg class="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            <div class="p-2 border-b border-{pivotType === 'wider' ? 'white' : 'black'} flex items-center justify-between">
+              <h4 class="text-xs font-medium">Wide Format</h4>
+              <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"></path>
               </svg>
             </div>
-            <p class="text-sm text-gray-600 mb-2">Convert long data into a wide table with columns for each value</p>
-            <div class="text-xs bg-white p-2 rounded border">
-              <table class="w-full">
+            <div class="p-2">
+              <table class="w-full border-collapse border border-{pivotType === 'wider' ? 'white' : 'black'}">
                 <thead>
                   <tr>
-                    <th class="border p-1">id</th>
-                    <th class="border p-1">name</th>
-                    <th class="border p-1">age</th>
-                    <th class="border p-1">city</th>
+                    <th class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">id</th>
+                    <th class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">name</th>
+                    <th class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">age</th>
+                    <th class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">city</th>
                   </tr>
                 </thead>
                 <tbody>
                   {#each wideExample as row}
                     <tr>
-                      <td class="border p-1">{row.id}</td>
-                      <td class="border p-1">{row.name}</td>
-                      <td class="border p-1">{row.age}</td>
-                      <td class="border p-1">{row.city}</td>
+                      <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.id}</td>
+                      <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.name}</td>
+                      <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.age}</td>
+                      <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.city}</td>
                     </tr>
                   {/each}
                 </tbody>
@@ -459,31 +484,30 @@
           </button>
 
           <button 
-            class="w-full p-4 border-2 rounded-lg transition-all duration-200 {pivotType === 'longer' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-200'}"
+            class="w-full border border-black transition-all duration-200 {pivotType === 'longer' ? 'bg-black text-white' : 'bg-white text-black'}"
             on:click={() => pivotType = 'longer'}
           >
-            <div class="flex items-center justify-between mb-2">
-              <h4 class="text-lg font-medium text-gray-900">Long Format</h4>
-              <svg class="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            <div class="p-2 border-b border-{pivotType === 'longer' ? 'white' : 'black'} flex items-center justify-between">
+              <h4 class="text-xs font-medium">Long Format</h4>
+              <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"></path>
               </svg>
             </div>
-            <p class="text-sm text-gray-600 mb-2">Convert wide data into a long table with rows for each value</p>
-            <div class="text-xs bg-white p-2 rounded border">
-              <table class="w-full">
+            <div class="p-2">
+              <table class="w-full border-collapse border border-{pivotType === 'longer' ? 'white' : 'black'}">
                 <thead>
                   <tr>
-                    <th class="border p-1">id</th>
-                    <th class="border p-1">variable</th>
-                    <th class="border p-1">value</th>
+                    <th class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">id</th>
+                    <th class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">variable</th>
+                    <th class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">value</th>
                   </tr>
                 </thead>
                 <tbody>
                   {#each longExample as row}
                     <tr>
-                      <td class="border p-1">{row.id}</td>
-                      <td class="border p-1">{row.variable}</td>
-                      <td class="border p-1">{row.value}</td>
+                      <td class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-[10px]">{row.id}</td>
+                      <td class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-[10px]">{row.variable}</td>
+                      <td class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-[10px]">{row.value}</td>
                     </tr>
                   {/each}
                 </tbody>
@@ -492,17 +516,16 @@
           </button>
         </div>
 
-        <div class="mt-6">
+        <div class="space-y-3">
           {#if pivotType === 'wider'}
-            <div class="space-y-4">
+            <div class="space-y-3">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-[10px] font-medium text-gray-700 mb-1">
                   Name Column
-                  <span class="text-xs text-gray-500 block">Values from this column will become new column names</span>
                 </label>
                 <select 
                   bind:value={nameColumn}
-                  class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  class="block w-full px-2 py-1 text-[10px] border border-gray-200 focus:outline-none focus:border-black"
                 >
                   <option value="">Select a column</option>
                   {#each columns as column}
@@ -512,13 +535,12 @@
               </div>
               
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-[10px] font-medium text-gray-700 mb-1">
                   Value Column
-                  <span class="text-xs text-gray-500 block">Values from this column will fill the new columns</span>
                 </label>
                 <select 
                   bind:value={valueColumn}
-                  class="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  class="block w-full px-2 py-1 text-[10px] border border-gray-200 focus:outline-none focus:border-black"
                 >
                   <option value="">Select a column</option>
                   {#each columns as column}
@@ -528,11 +550,10 @@
               </div>
               
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
+                <label class="block text-[10px] font-medium text-gray-700 mb-1">
                   ID Columns
-                  <span class="text-xs text-gray-500 block">Select columns that identify unique rows</span>
                 </label>
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-2 gap-1">
                   {#each columns as column}
                     {#if column !== nameColumn && column !== valueColumn}
                       <div class="flex items-center">
@@ -541,9 +562,9 @@
                           id={`id-${column}`}
                           checked={idColumns.includes(column)} 
                           on:change={() => toggleIdColumn(column)}
-                          class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          class="h-2.5 w-2.5 text-black focus:ring-black border-gray-300 rounded"
                         >
-                        <label for={`id-${column}`} class="ml-2 text-sm text-gray-700">
+                        <label for={`id-${column}`} class="ml-1 text-[10px] text-gray-700">
                           {column}
                         </label>
                       </div>
@@ -554,8 +575,10 @@
             </div>
           {:else}
             <div>
-             
-              <div class="grid grid-cols-2 gap-2">
+              <label class="block text-[10px] font-medium text-gray-700 mb-1">
+                Select Columns
+              </label>
+              <div class="grid grid-cols-2 gap-1">
                 {#each columns as column}
                   <div class="flex items-center">
                     <input 
@@ -563,9 +586,9 @@
                       id={`col-${column}`}
                       checked={selectedColumns.includes(column)} 
                       on:change={() => toggleColumnSelection(column)}
-                      class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      class="h-2.5 w-2.5 text-black focus:ring-black border-gray-300 rounded"
                     >
-                    <label for={`col-${column}`} class="ml-2 text-sm text-gray-700">
+                    <label for={`col-${column}`} class="ml-1 text-[10px] text-gray-700">
                       {column}
                     </label>
                   </div>
@@ -578,7 +601,7 @@
             type="button" 
             on:click={transformData} 
             disabled={isLoading}
-            class="mt-6 w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            class="w-full inline-flex justify-center items-center px-3 py-2 text-[10px] font-medium border border-black text-black hover:bg-black hover:text-white focus:outline-none focus:ring-1 focus:ring-black disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed transition-colors duration-200"
           >
             {isLoading ? 'Processing...' : 'Transform Data'}
           </button>
@@ -591,37 +614,54 @@
   <div class="flex-1 overflow-auto bg-white">
     {#if !data || columns.length === 0}
       <div class="h-full flex items-center justify-center">
-        <div class="text-center">
-          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        <div 
+          class="text-center p-4 border border-dashed cursor-pointer hover:border-gray-400 transition-colors duration-200"
+          on:dragenter={handleDragEnter}
+          on:dragleave={handleDragLeave}
+          on:dragover={handleDragOver}
+          on:drop={handleDrop}
+          on:click={() => document.getElementById('fileInput')?.click()}
+        >
+          <svg class="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
           </svg>
-          <h3 class="mt-2 text-sm font-medium text-gray-900">No data loaded</h3>
-          <p class="mt-1 text-sm text-gray-500">Upload a CSV file to get started</p>
+          <h3 class="mt-2 text-sm font-medium text-gray-900">Upload your data</h3>
+          <p class="mt-1 text-xs text-gray-500">Drag and drop a CSV file here, or click to select</p>
+          <p class="mt-1 text-[10px] text-gray-400">
+            CSV, TSV, TXT supported
+          </p>
         </div>
+        <input
+          type="file"
+          id="fileInput"
+          accept=".csv,.tsv,.txt,.json"
+          on:change={handleFileUpload}
+          class="hidden"
+        />
       </div>
     {:else if transformedData}
-      <div class="p-6">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-medium text-gray-800">Transformed Data Preview</h3>
+      <div class="p-4">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="text-xs font-medium text-gray-800">Transformed Data Preview</h3>
           <button 
             type="button" 
             on:click={downloadTransformedCsv}
-            class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            class="inline-flex items-center px-3 py-1.5 border border-black text-xs font-medium text-black hover:bg-black hover:text-white focus:outline-none focus:ring-1 focus:ring-black transition-colors duration-200"
           >
-            <svg class="-ml-1 mr-2 h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            <svg class="-ml-1 mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
             </svg>
             Download CSV
           </button>
         </div>
         
-        <div class="bg-gray-50 rounded-md border border-gray-200 overflow-auto">
+        <div class="border border-gray-200 overflow-auto">
           {#if transformedData.length > 0}
             <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-100">
+              <thead class="bg-gray-50">
                 <tr>
                   {#each Object.keys(transformedData[0] || {}) as header}
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{header}</th>
+                    <th class="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase tracking-wider">{header}</th>
                   {/each}
                 </tr>
               </thead>
@@ -629,7 +669,7 @@
                 {#each transformedData.slice(0, 10) as row}
                   <tr class="hover:bg-gray-50">
                     {#each Object.keys(transformedData[0] || {}) as key}
-                      <td class="px-3 py-2 text-sm text-gray-500 max-w-xs truncate">{row[key]}</td>
+                      <td class="px-3 py-2 text-[10px] text-gray-500 max-w-xs truncate">{row[key]}</td>
                     {/each}
                   </tr>
                 {/each}
@@ -637,30 +677,30 @@
             </table>
             
             {#if transformedData.length > 10}
-              <div class="px-3 py-2 text-sm text-gray-600 bg-gray-50 border-t border-gray-200">
+              <div class="px-3 py-2 text-[10px] text-gray-600 bg-gray-50 border-t border-gray-200">
                 Showing first 10 of {transformedData.length} rows
               </div>
             {/if}
           {:else}
-            <div class="p-4 text-sm text-gray-600">
+            <div class="p-3 text-[10px] text-gray-600">
               No data to display
             </div>
           {/if}
         </div>
       </div>
     {:else}
-      <div class="p-6">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-medium text-gray-800">Data Preview</h3>
+      <div class="p-4">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="text-xs font-medium text-gray-800">Data Preview</h3>
         </div>
         
-        <div class="bg-gray-50 rounded-md border border-gray-200 overflow-auto">
+        <div class="border border-gray-200 overflow-auto">
           {#if data.length > 0}
             <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-100">
+              <thead class="bg-gray-50">
                 <tr>
                   {#each columns as header}
-                    <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">{header}</th>
+                    <th class="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase tracking-wider">{header}</th>
                   {/each}
                 </tr>
               </thead>
@@ -668,7 +708,7 @@
                 {#each data.slice(0, 10) as row}
                   <tr class="hover:bg-gray-50">
                     {#each columns as key}
-                      <td class="px-3 py-2 text-sm text-gray-500 max-w-xs truncate">{row[key]}</td>
+                      <td class="px-3 py-2 text-[10px] text-gray-500 max-w-xs truncate">{row[key]}</td>
                     {/each}
                   </tr>
                 {/each}
@@ -676,12 +716,12 @@
             </table>
             
             {#if data.length > 10}
-              <div class="px-3 py-2 text-sm text-gray-600 bg-gray-50 border-t border-gray-200">
+              <div class="px-3 py-2 text-[10px] text-gray-600 bg-gray-50 border-t border-gray-200">
                 Showing first 10 of {data.length} rows
               </div>
             {/if}
           {:else}
-            <div class="p-4 text-sm text-gray-600">
+            <div class="p-3 text-[10px] text-gray-600">
               No data to display
             </div>
           {/if}
