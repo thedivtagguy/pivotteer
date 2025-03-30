@@ -23,6 +23,7 @@
   <div class="text-right mt-2">
     <p class="text-xs text-gray-500">
        <!-- <a href="https://aman.bh" class="underline hover:text-gray-700">Aman Bhargava</a>  -->
+      Built with Svelte and webR
       (<a href="https://github.com/thedivtagguy/pivotteer" class="underline hover:text-gray-700">GitHub</a>) · 
       <span class="text-gray-400">CC-BY-SA</span>
     </p>

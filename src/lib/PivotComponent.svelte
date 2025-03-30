@@ -26,20 +26,7 @@
   /** @type {Array<Record<string, any>> | null} */
   let transformedData = null;
   let transformedCsv = '';
-  let advancedOptions = false;
   let showPreview = true;
-  
-  // Type definitions for widerOptions
-  /** @type {{namesPrefix: string, namesSep: string, namesRepair: string, valuesFrom: string[], valuesPrefix: string, valuesFill: any, valuesPartial: any}} */
-  let widerOptions = {
-    namesPrefix: '',
-    namesSep: '_',
-    namesRepair: 'check_unique',
-    valuesFrom: [],
-    valuesPrefix: '',
-    valuesFill: null,
-    valuesPartial: null
-  };
   
   // Example data for visual previews
   const wideExample = [
@@ -55,18 +42,6 @@
     { id: 2, variable: 'age', value: '25' },
     { id: 2, variable: 'city', value: 'LA' }
   ];
-  
-  // Advanced options for pivot_longer
-  let longerOptions = {
-    namesTo: 'name',
-    valuesTo: 'value',
-    namesPrefix: null,
-    namesSep: null,
-    namesPattern: null,
-    namesRepair: 'check_unique',
-    valuesTransform: null,
-    namesTransform: null
-  };
 
   onMount(async () => {
     try {
@@ -247,17 +222,6 @@
       idColumns = [...idColumns, column];
     }
   }
-  
-  /**
-   * @param {string} column
-   */
-  function toggleValueFromColumn(column) {
-    if (widerOptions.valuesFrom.includes(column)) {
-      widerOptions.valuesFrom = widerOptions.valuesFrom.filter(col => col !== column);
-    } else {
-      widerOptions.valuesFrom = [...widerOptions.valuesFrom, column];
-    }
-  }
 
   function togglePreview() {
     showPreview = !showPreview;
@@ -406,6 +370,19 @@
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
+
+  function resetApp() {
+    file = null;
+    data = null;
+    columns = [];
+    selectedColumns = [];
+    nameColumn = '';
+    valueColumn = '';
+    idColumns = [];
+    transformedData = null;
+    transformedCsv = '';
+    errorMessage = '';
+  }
 </script>
 
 <div class="flex h-[calc(90vh)] bg-white">
@@ -415,7 +392,6 @@
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-bold tracking-tight">PIVOTTEER</h2>
         <img src={Logo} alt="Pivotteer Logo" width="120" />
-
       </div>
       <p class="text-xs text-gray-600 mt-1">Transform data between wide and long formats</p>
     </div>
@@ -446,76 +422,78 @@
       </div>
     {/if}
 
-    {#if data && columns.length > 0}
-      <div class="p-3 space-y-3">
-        <div class="grid grid-cols-1 gap-2">
-          <button 
-            class="w-full border border-black transition-all duration-200 {pivotType === 'wider' ? 'bg-black text-white' : 'bg-white text-black'}"
-            on:click={() => pivotType = 'wider'}
-          >
-            <div class="p-2 border-b border-{pivotType === 'wider' ? 'white' : 'black'} flex items-center justify-between">
-              <h4 class="text-xs font-medium">Wide Format</h4>
-              <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"></path>
-              </svg>
-            </div>
-            <div class="p-2">
-              <table class="w-full border-collapse border border-{pivotType === 'wider' ? 'white' : 'black'}">
-                <thead>
+    <div class="p-3 space-y-3">
+      <div class="grid grid-cols-1 gap-2">
+        <button 
+          class="w-full border border-black transition-all duration-200 {pivotType === 'wider' ? 'bg-black text-white' : 'bg-white text-black'} {!data ? 'opacity-50 cursor-not-allowed' : ''}"
+          on:click={() => pivotType = 'wider'}
+          disabled={!data}
+        >
+          <div class="p-2 border-b border-{pivotType === 'wider' ? 'white' : 'black'} flex items-center justify-between">
+            <h4 class="text-xs font-medium">Wide Format</h4>
+            <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </div>
+          <div class="p-2">
+            <table class="w-full border-collapse border border-{pivotType === 'wider' ? 'white' : 'black'}">
+              <thead>
+                <tr>
+                  <th class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">id</th>
+                  <th class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">name</th>
+                  <th class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">age</th>
+                  <th class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">city</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each wideExample as row}
                   <tr>
-                    <th class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">id</th>
-                    <th class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">name</th>
-                    <th class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">age</th>
-                    <th class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">city</th>
+                    <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.id}</td>
+                    <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.name}</td>
+                    <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.age}</td>
+                    <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.city}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {#each wideExample as row}
-                    <tr>
-                      <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.id}</td>
-                      <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.name}</td>
-                      <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.age}</td>
-                      <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.city}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          </button>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </button>
 
-          <button 
-            class="w-full border border-black transition-all duration-200 {pivotType === 'longer' ? 'bg-black text-white' : 'bg-white text-black'}"
-            on:click={() => pivotType = 'longer'}
-          >
-            <div class="p-2 border-b border-{pivotType === 'longer' ? 'white' : 'black'} flex items-center justify-between">
-              <h4 class="text-xs font-medium">Long Format</h4>
-              <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"></path>
-              </svg>
-            </div>
-            <div class="p-2">
-              <table class="w-full border-collapse border border-{pivotType === 'longer' ? 'white' : 'black'}">
-                <thead>
+        <button 
+          class="w-full border border-black transition-all duration-200 {pivotType === 'longer' ? 'bg-black text-white' : 'bg-white text-black'} {!data ? 'opacity-50 cursor-not-allowed' : ''}"
+          on:click={() => pivotType = 'longer'}
+          disabled={!data}
+        >
+          <div class="p-2 border-b border-{pivotType === 'longer' ? 'white' : 'black'} flex items-center justify-between">
+            <h4 class="text-xs font-medium">Long Format</h4>
+            <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </div>
+          <div class="p-2">
+            <table class="w-full border-collapse border border-{pivotType === 'longer' ? 'white' : 'black'}">
+              <thead>
+                <tr>
+                  <th class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">id</th>
+                  <th class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">variable</th>
+                  <th class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each longExample as row}
                   <tr>
-                    <th class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">id</th>
-                    <th class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">variable</th>
-                    <th class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-left text-[10px] font-medium">value</th>
+                    <td class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-[10px]">{row.id}</td>
+                    <td class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-[10px]">{row.variable}</td>
+                    <td class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-[10px]">{row.value}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {#each longExample as row}
-                    <tr>
-                      <td class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-[10px]">{row.id}</td>
-                      <td class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-[10px]">{row.variable}</td>
-                      <td class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-[10px]">{row.value}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          </button>
-        </div>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </button>
+      </div>
 
+      {#if data && columns.length > 0}
         <div class="space-y-3">
           {#if pivotType === 'wider'}
             <div class="space-y-3">
@@ -606,8 +584,21 @@
             {isLoading ? 'Processing...' : 'Transform Data'}
           </button>
         </div>
-      </div>
-    {/if}
+      {/if}
+
+      {#if data}
+        <button 
+          type="button" 
+          on:click={resetApp}
+          class="w-full inline-flex justify-center items-center px-3 py-2 text-[10px] font-medium border border-gray-300 text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-300 transition-colors duration-200"
+        >
+          <svg class="-ml-1 mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Reset
+        </button>
+      {/if}
+    </div>
   </div>
 
   <!-- Main Content Area -->
