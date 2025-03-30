@@ -2,63 +2,49 @@
   import { onMount } from 'svelte';
   import { WebR } from 'webr';
   import Papa from 'papaparse';
-
   import Logo from '$lib/assets/logo.webp'
-  // Add type definitions for variables
-  /** @type {WebR | null} */
+
+  // State variables
   let webR = null;
   let isLoading = true;
   let dragActive = false;
-  /** @type {File | null} */
   let file = null;
-  /** @type {Array<Record<string, any>> | null} */
   let data = null;
-  /** @type {string[]} */
   let columns = [];
-  /** @type {string[]} */
   let selectedColumns = [];
-  let pivotType = 'wider'; // or 'longer'
+  let pivotType = 'wider';
   let nameColumn = '';
   let valueColumn = '';
-  /** @type {string[]} */
   let idColumns = [];
   let errorMessage = '';
-  /** @type {Array<Record<string, any>> | null} */
   let transformedData = null;
   let transformedCsv = '';
   let showPreview = true;
-  /** @type {string[]} */
-  let loadingMessages = [];
+  let loadingMessages = ['Initializing WebR...', 'Loading required packages...', 'Setting up environment...', 'Almost ready...'];
   let currentMessageIndex = 0;
   
   // Example data for visual previews
-  const wideExample = [
-    { id: 1, name: 'John', age: 30, city: 'NY' },
-    { id: 2, name: 'Jane', age: 25, city: 'LA' }
-  ];
-  
-  const longExample = [
-    { id: 1, variable: 'name', value: 'John' },
-    { id: 1, variable: 'age', value: '30' },
-    { id: 1, variable: 'city', value: 'NY' },
-    { id: 2, variable: 'name', value: 'Jane' },
-    { id: 2, variable: 'age', value: '25' },
-    { id: 2, variable: 'city', value: 'LA' }
-  ];
+  const examples = {
+    wide: [
+      { id: 1, name: 'John', age: 30, city: 'NY' },
+      { id: 2, name: 'Jane', age: 25, city: 'LA' }
+    ],
+    long: [
+      { id: 1, variable: 'name', value: 'John' },
+      { id: 1, variable: 'age', value: '30' },
+      { id: 1, variable: 'city', value: 'NY' },
+      { id: 2, variable: 'name', value: 'Jane' },
+      { id: 2, variable: 'age', value: '25' },
+      { id: 2, variable: 'city', value: 'LA' }
+    ]
+  };
 
   onMount(async () => {
     try {
-      loadingMessages = [
-        'Initializing WebR...',
-        'Loading required packages...',
-        'Setting up environment...',
-        'Almost ready...'
-      ];
       currentMessageIndex = 0;
-      
       webR = new WebR();
       await webR.init();
-      currentMessageIndex = 1;
+      currentMessageIndex++;
       
       // Load required R packages
       await webR.evalR(`
@@ -68,14 +54,13 @@
         library(dplyr)
         library(readr)
       `);
-      currentMessageIndex = 2;
+      currentMessageIndex++;
       
-      // Add a small delay to show the last message
+      // Add small delays to show loading messages
       await new Promise(resolve => setTimeout(resolve, 500));
-      currentMessageIndex = 3;
+      currentMessageIndex++;
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Final delay before removing loading state
-      await new Promise(resolve => setTimeout(resolve, 500));
       isLoading = false;
       loadingMessages = [];
     } catch (error) {
@@ -85,13 +70,9 @@
     }
   });
 
-  /**
-   * Handle file upload event
-   * @param {Event} event - The file upload event
-   */
   async function handleFileUpload(event) {
     try {
-      const inputElement = /** @type {HTMLInputElement} */ (event.target);
+      const inputElement = event.target;
       if (inputElement.files && inputElement.files.length > 0) {
         file = inputElement.files[0];
       }
@@ -101,45 +82,23 @@
       errorMessage = '';
       isLoading = true;
 
-      // Read the file content first to detect the delimiter
+      // Read file to detect delimiter
       const fileContent = await file.text();
-      
-      // Try to detect the delimiter by looking at the first line
       const firstLine = fileContent.split('\n')[0];
-      let delimiter = ',';
-      if (firstLine.includes('\t')) {
-        delimiter = '\t';
-      } else if (firstLine.includes(';')) {
-        delimiter = ';';
-      }
+      const delimiter = firstLine.includes('\t') ? '\t' : (firstLine.includes(';') ? ';' : ',');
 
-      // Parse CSV file using PapaParse with more flexible options
+      // Parse CSV with Papa
       Papa.parse(file, {
         header: true,
         dynamicTyping: true,
-        delimiter: delimiter,
+        delimiter,
         skipEmptyLines: true,
-        transformHeader: (header) => header.trim(),
-        transform: (value) => value ? value.toString().trim() : '',
-        complete: function(results) {
+        transformHeader: header => header.trim(),
+        transform: value => value ? value.toString().trim() : '',
+        complete: results => {
           if (results.errors.length > 0) {
-            // Provide more helpful error messages
             const error = results.errors[0];
-            let errorMsg = 'Error parsing CSV: ';
-            
-            if (error.code === 'TooFewFields') {
-              errorMsg += `Row ${(error.row ?? 0) + 1} has fewer columns than expected. `;
-              errorMsg += `This might be due to missing delimiters or incorrect line endings. `;
-              errorMsg += `Please check if your CSV file is properly formatted.`;
-            } else if (error.code === 'TooManyFields') {
-              errorMsg += `Row ${(error.row ?? 0) + 1} has more columns than expected. `;
-              errorMsg += `This might be due to unescaped delimiters in your data. `;
-              errorMsg += `Please check if your CSV file is properly formatted.`;
-            } else {
-              errorMsg += error.message;
-            }
-            
-            errorMessage = errorMsg;
+            errorMessage = `Error parsing CSV: ${getDetailedErrorMessage(error)}`;
             isLoading = false;
             return;
           }
@@ -150,15 +109,14 @@
             return;
           }
 
-          // Validate that all rows have the same number of columns
+          // Validate row consistency
           const firstRowCols = Object.keys(results.data[0] || {}).length;
           const inconsistentRows = results.data.filter(row => 
             Object.keys(row).length !== firstRowCols
           );
 
           if (inconsistentRows.length > 0) {
-            errorMessage = `Found ${inconsistentRows.length} rows with inconsistent number of columns. `;
-            errorMessage += `Please check if your CSV file is properly formatted.`;
+            errorMessage = `Found ${inconsistentRows.length} rows with inconsistent number of columns. Please check if your CSV file is properly formatted.`;
             isLoading = false;
             return;
           }
@@ -167,7 +125,7 @@
           columns = Object.keys(results.data[0] || {});
           isLoading = false;
         },
-        error: function(error) {
+        error: error => {
           errorMessage = `Error reading file: ${error.message}. Please check if the file is not corrupted.`;
           isLoading = false;
         }
@@ -178,70 +136,55 @@
     }
   }
 
-  /**
-   * @param {DragEvent} e
-   */
-  function handleDragEnter(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    dragActive = true;
-  }
-
-  /**
-   * @param {DragEvent} e
-   */
-  function handleDragLeave(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    dragActive = false;
-  }
-
-  /**
-   * @param {DragEvent} e
-   */
-  function handleDragOver(e) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  /**
-   * @param {DragEvent} e
-   */
-  function handleDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    dragActive = false;
-    
-    if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-      file = e.dataTransfer.files[0];
-      // Create a mock event that works with our handleFileUpload function
-      const mockEvent = new Event('change');
-      const mockTarget = { files: e.dataTransfer.files };
-      Object.defineProperty(mockEvent, 'target', { value: mockTarget });
-      handleFileUpload(mockEvent);
+  function getDetailedErrorMessage(error) {
+    if (error.code === 'TooFewFields') {
+      return `Row ${(error.row ?? 0) + 1} has fewer columns than expected. This might be due to missing delimiters or incorrect line endings. Please check if your CSV file is properly formatted.`;
+    } else if (error.code === 'TooManyFields') {
+      return `Row ${(error.row ?? 0) + 1} has more columns than expected. This might be due to unescaped delimiters in your data. Please check if your CSV file is properly formatted.`;
     }
+    return error.message;
   }
 
-  /**
-   * @param {string} column
-   */
+  // Drag and drop handlers
+  const dragHandlers = {
+    enter: e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragActive = true;
+    },
+    leave: e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragActive = false;
+    },
+    over: e => {
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    drop: e => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragActive = false;
+      
+      if (e.dataTransfer?.files?.length > 0) {
+        file = e.dataTransfer.files[0];
+        const mockEvent = { target: { files: e.dataTransfer.files } };
+        handleFileUpload(mockEvent);
+      }
+    }
+  };
+
+  // Toggle functions
   function toggleColumnSelection(column) {
-    if (selectedColumns.includes(column)) {
-      selectedColumns = selectedColumns.filter(col => col !== column);
-    } else {
-      selectedColumns = [...selectedColumns, column];
-    }
+    selectedColumns = selectedColumns.includes(column) 
+      ? selectedColumns.filter(col => col !== column)
+      : [...selectedColumns, column];
   }
 
-  /**
-   * @param {string} column
-   */
   function toggleIdColumn(column) {
-    if (idColumns.includes(column)) {
-      idColumns = idColumns.filter(col => col !== column);
-    } else {
-      idColumns = [...idColumns, column];
-    }
+    idColumns = idColumns.includes(column)
+      ? idColumns.filter(col => col !== column)
+      : [...idColumns, column];
   }
 
   function togglePreview() {
@@ -255,126 +198,113 @@
         return;
       }
 
-      if (pivotType === 'wider' && (!nameColumn || !valueColumn)) {
-        errorMessage = 'Please select name and value columns for pivot_wider';
-        return;
-      }
-
-      if (pivotType === 'longer' && selectedColumns.length === 0) {
-        errorMessage = 'Please select columns to pivot';
+      if ((pivotType === 'wider' && (!nameColumn || !valueColumn)) || 
+          (pivotType === 'longer' && selectedColumns.length === 0)) {
+        errorMessage = pivotType === 'wider' 
+          ? 'Please select name and value columns for pivot_wider'
+          : 'Please select columns to pivot';
         return;
       }
 
       isLoading = true;
       errorMessage = '';
 
-      // Clean the data to ensure it only contains simple values
+      // Clean data and convert to CSV
       const cleanData = data.map(row => {
-        /** @type {Record<string, string>} */
         const cleanRow = {};
         for (const key of Object.keys(row)) {
-          // Convert any complex values to strings, handle null/undefined
           const value = row[key];
           cleanRow[key] = value === null || value === undefined ? '' : String(value);
         }
         return cleanRow;
       });
 
-      // Convert the cleaned data to CSV string
       const csvString = Papa.unparse(cleanData, {
         header: true,
-        quotes: true // Force quotes around all fields
+        quotes: true
       });
 
-      // FIX: Instead of trying to use a file object directly, we'll create a temporary file in WebR's filesystem
       if (!webR) {
         throw new Error('WebR is not initialized');
       }
 
-      // Write the CSV string to a file in WebR's virtual filesystem
-      // Make sure to escape both quotes and newlines for R
+      // Write CSV to WebR filesystem
       const escapedCsvString = csvString.replace(/"/g, '\\"').replace(/\n/g, '\\n');
       await webR.evalR(`
         input_data <- "${escapedCsvString}"
         write(input_data, file = "input.csv")
       `);
       
-      let rCode = '';
+      // Build and execute R code based on pivot type
+      const rCode = buildRCode();
+      await webR.evalR(rCode);
       
-      if (pivotType === 'wider') {
-        const escapedNameCol = nameColumn.replace(/"/g, '\\"');
-        const escapedValueCol = valueColumn.replace(/"/g, '\\"');
-        const idColsString = idColumns.length > 0 
-          ? `c(${idColumns.map(col => `"${col.replace(/"/g, '\\"')}"`).join(', ')})` 
-          : 'NULL';
-        
-        rCode = `
-          transform_result <- tryCatch({
-            df <- read.csv("input.csv", stringsAsFactors = FALSE, check.names = FALSE)
-            result <- df %>%
-              pivot_wider(
-                id_cols = ${idColsString},
-                names_from = "${escapedNameCol}",
-                values_from = "${escapedValueCol}",
-                names_sep = "_",
-                names_repair = "check_unique"
-              )
-            write.csv(result, "result.csv", row.names = FALSE, quote = TRUE)
-            result
-          }, error = function(e) {
-            stop(paste("Error in pivot_wider:", e$message))
-          })
-        `;
-      } else {
-        const colsToUnpivot = selectedColumns.map(col => `"${col.replace(/"/g, '\\"')}"`).join(', ');
-        
-        rCode = `
-          transform_result <- tryCatch({
-            df <- read.csv("input.csv", stringsAsFactors = FALSE, check.names = FALSE)
-            result <- df %>%
-              pivot_longer(
-                cols = c(${colsToUnpivot}),
-                names_to = "variable",
-                values_to = "value",
-                names_repair = "check_unique"
-              )
-            write.csv(result, "result.csv", row.names = FALSE, quote = TRUE)
-            result
-          }, error = function(e) {
-            stop(paste("Error in pivot_longer:", e$message))
-          })
-        `;
+      // Read and parse results
+      const resultCsvBuffer = await webR.FS.readFile('result.csv');
+      transformedCsv = new TextDecoder('utf-8').decode(resultCsvBuffer);
+      
+      const parsedResult = Papa.parse(transformedCsv, {
+        header: true,
+        dynamicTyping: true,
+        skipEmptyLines: true
+      });
+
+      if (parsedResult.errors?.length > 0) {
+        throw new Error(`Error parsing transformed data: ${parsedResult.errors[0].message}`);
       }
 
-      try {
-        // Execute the R code
-        await webR.evalR(rCode);
-        
-        // Read the result as a string with proper encoding
-        const resultCsvBuffer = await webR.FS.readFile('result.csv');
-        const textDecoder = new TextDecoder('utf-8');
-        transformedCsv = textDecoder.decode(resultCsvBuffer);
-        
-        // Parse the CSV content using PapaParse
-        const parsedResult = Papa.parse(transformedCsv, {
-          header: true,
-          dynamicTyping: true,
-          skipEmptyLines: true
-        });
-
-        if (parsedResult.errors && parsedResult.errors.length > 0) {
-          throw new Error(`Error parsing transformed data: ${parsedResult.errors[0].message}`);
-        }
-
-        transformedData = parsedResult.data;
-        isLoading = false;
-      } catch (error) {
-        console.error('R Error:', error);
-        throw new Error(`Error transforming data: ${error instanceof Error ? error.message : String(error)}`);
-      }
+      transformedData = parsedResult.data;
+      isLoading = false;
     } catch (error) {
       errorMessage = `Error transforming data: ${error instanceof Error ? error.message : String(error)}`;
       isLoading = false;
+    }
+  }
+
+  function buildRCode() {
+    if (pivotType === 'wider') {
+      const escapedNameCol = nameColumn.replace(/"/g, '\\"');
+      const escapedValueCol = valueColumn.replace(/"/g, '\\"');
+      const idColsString = idColumns.length > 0 
+        ? `c(${idColumns.map(col => `"${col.replace(/"/g, '\\"')}"`).join(', ')})` 
+        : 'NULL';
+      
+      return `
+        transform_result <- tryCatch({
+          df <- read.csv("input.csv", stringsAsFactors = FALSE, check.names = FALSE)
+          result <- df %>%
+            pivot_wider(
+              id_cols = ${idColsString},
+              names_from = "${escapedNameCol}",
+              values_from = "${escapedValueCol}",
+              names_sep = "_",
+              names_repair = "check_unique"
+            )
+          write.csv(result, "result.csv", row.names = FALSE, quote = TRUE)
+          result
+        }, error = function(e) {
+          stop(paste("Error in pivot_wider:", e$message))
+        })
+      `;
+    } else {
+      const colsToUnpivot = selectedColumns.map(col => `"${col.replace(/"/g, '\\"')}"`).join(', ');
+      
+      return `
+        transform_result <- tryCatch({
+          df <- read.csv("input.csv", stringsAsFactors = FALSE, check.names = FALSE)
+          result <- df %>%
+            pivot_longer(
+              cols = c(${colsToUnpivot}),
+              names_to = "variable",
+              values_to = "value",
+              names_repair = "check_unique"
+            )
+          write.csv(result, "result.csv", row.names = FALSE, quote = TRUE)
+          result
+        }, error = function(e) {
+          stop(paste("Error in pivot_longer:", e$message))
+        })
+      `;
     }
   }
 
@@ -405,7 +335,6 @@
     errorMessage = '';
   }
 </script>
-
 <div class="flex flex-col md:flex-row h-[calc(90vh)] bg-white">
   <!-- Sidebar -->
   <div class="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-black overflow-y-auto">
@@ -484,7 +413,7 @@
                 </tr>
               </thead>
               <tbody>
-                {#each wideExample as row}
+                {#each examples.wide as row}
                   <tr>
                     <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.id}</td>
                     <td class="border border-{pivotType === 'wider' ? 'white' : 'black'} p-1 text-[10px]">{row.name}</td>
@@ -518,7 +447,7 @@
                 </tr>
               </thead>
               <tbody>
-                {#each longExample as row}
+                {#each examples.long as row}
                   <tr>
                     <td class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-[10px]">{row.id}</td>
                     <td class="border border-{pivotType === 'longer' ? 'white' : 'black'} p-1 text-[10px]">{row.variable}</td>
@@ -645,10 +574,10 @@
       <div class="h-full flex items-center justify-center p-4">
         <div 
           class="text-center p-4 border border-dashed cursor-pointer hover:border-gray-400 transition-colors duration-200 w-full max-w-md"
-          on:dragenter={handleDragEnter}
-          on:dragleave={handleDragLeave}
-          on:dragover={handleDragOver}
-          on:drop={handleDrop}
+          on:dragenter={dragHandlers.enter}
+          on:dragleave={dragHandlers.leave}
+          on:dragover={dragHandlers.over}
+          on:drop={dragHandlers.drop}
           on:click={() => document.getElementById('fileInput')?.click()}
         >
           <svg class="mx-auto h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
