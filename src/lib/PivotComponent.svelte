@@ -410,6 +410,10 @@
     {/if}
 
     <div class="p-3 space-y-3">
+      <div>
+        <h4 class="text-xs font-medium">Convert to </h4>
+
+      </div>
       <div class="grid grid-cols-1 gap-2">
         <button 
           class="w-full border border-black transition-all duration-200 {pivotType === 'wider' ? 'bg-black text-white' : 'bg-white text-black'} {!data ? 'opacity-50 cursor-not-allowed' : ''}"
@@ -624,22 +628,9 @@
             disabled={isLoading}
             class="w-full inline-flex justify-center items-center px-3 py-2 text-[10px] font-medium border border-black text-black hover:bg-black hover:text-white focus:outline-none focus:ring-1 focus:ring-black disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed transition-colors duration-200 mt-4"
           >
-            {isLoading ? 'Processing...' : 'Transform Data'}
+            {isLoading ? 'Processing...' : 'Transform'}
           </button>
         </div>
-      {/if}
-
-      {#if data}
-        <button 
-          type="button" 
-          on:click={resetApp}
-          class="w-full inline-flex justify-center items-center px-3 py-2 text-[10px] font-medium border border-gray-300 text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-300 transition-colors duration-200 mt-4"
-        >
-          <svg class="-ml-1 mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Reset
-        </button>
       {/if}
     </div>
   </div>
@@ -676,7 +667,7 @@
     {:else if transformedData}
       <div class="p-4">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
-          <h3 class="text-xs font-medium text-gray-800">Transformed Data Preview</h3>
+          <h3 class="text-xs font-medium text-gray-800">Transform Preview</h3>
           <button 
             type="button" 
             on:click={downloadTransformedCsv}
@@ -721,11 +712,22 @@
             </div>
           {/if}
         </div>
+
+        <button 
+          type="button" 
+          on:click={resetApp}
+          class="w-full inline-flex justify-center items-center px-3 py-2 text-[10px] font-medium border border-gray-300 text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-300 transition-colors duration-200 mt-4"
+        >
+          <svg class="-ml-1 mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Reset
+        </button>
       </div>
     {:else}
       <div class="p-4">
         <div class="flex justify-between items-center mb-3">
-          <h3 class="text-xs font-medium text-gray-800">Data Preview</h3>
+          <h3 class="text-xs font-medium text-gray-800">Preview</h3>
         </div>
         
         <div class="border border-gray-200 overflow-auto -mx-4 sm:mx-0">
@@ -760,6 +762,17 @@
             </div>
           {/if}
         </div>
+
+        <button 
+          type="button" 
+          on:click={resetApp}
+          class="w-full inline-flex justify-center items-center px-3 py-2 text-[10px] font-medium border border-gray-300 text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-300 transition-colors duration-200 mt-4"
+        >
+          <svg class="-ml-1 mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Reset
+        </button>
       </div>
     {/if}
   </div>
