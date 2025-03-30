@@ -406,13 +406,14 @@
   }
 </script>
 
-<div class="flex h-[calc(90vh)] bg-white">
+<div class="flex flex-col md:flex-row h-[calc(90vh)] bg-white">
   <!-- Sidebar -->
-  <div class="w-64 bg-white border-r border-black overflow-y-auto">
+  <div class="w-full md:w-64 bg-white border-b md:border-b-0 md:border-r border-black overflow-y-auto">
     <div class="p-3 border-b border-black">
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-bold tracking-tight">PIVOTTEER</h2>
-        <img src={Logo} alt="Pivotteer Logo" width="120" />
+        <img src={Logo} alt="Pivotteer Logo" width="120" class="hidden md:block" />
+        <img src={Logo} alt="Pivotteer Logo" width="80" class="md:hidden" />
       </div>
       <p class="text-xs text-gray-600 mt-1">Transform data between wide and long formats</p>
     </div>
@@ -568,7 +569,7 @@
                 <label class="block text-[10px] font-medium text-gray-700 mb-1">
                   ID Columns
                 </label>
-                <div class="grid grid-cols-2 gap-1">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
                   {#each columns as column}
                     {#if column !== nameColumn && column !== valueColumn}
                       <div class="flex items-center">
@@ -593,7 +594,7 @@
               <label class="block text-[10px] font-medium text-gray-700 mb-1">
                 Select Columns
               </label>
-              <div class="grid grid-cols-2 gap-1">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
                 {#each columns as column}
                   <div class="flex items-center">
                     <input 
@@ -616,7 +617,7 @@
             type="button" 
             on:click={transformData} 
             disabled={isLoading}
-            class="w-full inline-flex justify-center items-center px-3 py-2 text-[10px] font-medium border border-black text-black hover:bg-black hover:text-white focus:outline-none focus:ring-1 focus:ring-black disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed transition-colors duration-200"
+            class="w-full inline-flex justify-center items-center px-3 py-2 text-[10px] font-medium border border-black text-black hover:bg-black hover:text-white focus:outline-none focus:ring-1 focus:ring-black disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed transition-colors duration-200 mt-4"
           >
             {isLoading ? 'Processing...' : 'Transform Data'}
           </button>
@@ -627,7 +628,7 @@
         <button 
           type="button" 
           on:click={resetApp}
-          class="w-full inline-flex justify-center items-center px-3 py-2 text-[10px] font-medium border border-gray-300 text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-300 transition-colors duration-200"
+          class="w-full inline-flex justify-center items-center px-3 py-2 text-[10px] font-medium border border-gray-300 text-gray-500 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-300 transition-colors duration-200 mt-4"
         >
           <svg class="-ml-1 mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -641,9 +642,9 @@
   <!-- Main Content Area -->
   <div class="flex-1 overflow-auto bg-white">
     {#if !data || columns.length === 0}
-      <div class="h-full flex items-center justify-center">
+      <div class="h-full flex items-center justify-center p-4">
         <div 
-          class="text-center p-4 border border-dashed cursor-pointer hover:border-gray-400 transition-colors duration-200"
+          class="text-center p-4 border border-dashed cursor-pointer hover:border-gray-400 transition-colors duration-200 w-full max-w-md"
           on:dragenter={handleDragEnter}
           on:dragleave={handleDragLeave}
           on:dragover={handleDragOver}
@@ -669,12 +670,12 @@
       </div>
     {:else if transformedData}
       <div class="p-4">
-        <div class="flex justify-between items-center mb-3">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
           <h3 class="text-xs font-medium text-gray-800">Transformed Data Preview</h3>
           <button 
             type="button" 
             on:click={downloadTransformedCsv}
-            class="inline-flex items-center px-3 py-1.5 border border-black text-xs font-medium text-black hover:bg-black hover:text-white focus:outline-none focus:ring-1 focus:ring-black transition-colors duration-200"
+            class="w-full sm:w-auto inline-flex items-center justify-center px-3 py-1.5 border border-black text-xs font-medium text-black hover:bg-black hover:text-white focus:outline-none focus:ring-1 focus:ring-black transition-colors duration-200"
           >
             <svg class="-ml-1 mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
@@ -683,13 +684,13 @@
           </button>
         </div>
         
-        <div class="border border-gray-200 overflow-auto">
+        <div class="border border-gray-200 overflow-auto -mx-4 sm:mx-0">
           {#if transformedData.length > 0}
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
                   {#each Object.keys(transformedData[0] || {}) as header}
-                    <th class="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase tracking-wider">{header}</th>
+                    <th class="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">{header}</th>
                   {/each}
                 </tr>
               </thead>
@@ -697,7 +698,7 @@
                 {#each transformedData.slice(0, 10) as row}
                   <tr class="hover:bg-gray-50">
                     {#each Object.keys(transformedData[0] || {}) as key}
-                      <td class="px-3 py-2 text-[10px] text-gray-500 max-w-xs truncate">{row[key]}</td>
+                      <td class="px-3 py-2 text-[10px] text-gray-500 max-w-xs truncate whitespace-nowrap">{row[key]}</td>
                     {/each}
                   </tr>
                 {/each}
@@ -722,13 +723,13 @@
           <h3 class="text-xs font-medium text-gray-800">Data Preview</h3>
         </div>
         
-        <div class="border border-gray-200 overflow-auto">
+        <div class="border border-gray-200 overflow-auto -mx-4 sm:mx-0">
           {#if data.length > 0}
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
                   {#each columns as header}
-                    <th class="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase tracking-wider">{header}</th>
+                    <th class="px-3 py-2 text-left text-[10px] font-medium text-gray-600 uppercase tracking-wider whitespace-nowrap">{header}</th>
                   {/each}
                 </tr>
               </thead>
@@ -736,7 +737,7 @@
                 {#each data.slice(0, 10) as row}
                   <tr class="hover:bg-gray-50">
                     {#each columns as key}
-                      <td class="px-3 py-2 text-[10px] text-gray-500 max-w-xs truncate">{row[key]}</td>
+                      <td class="px-3 py-2 text-[10px] text-gray-500 max-w-xs truncate whitespace-nowrap">{row[key]}</td>
                     {/each}
                   </tr>
                 {/each}
