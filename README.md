@@ -14,19 +14,6 @@ A Svelte web application that allows users to transform CSV data between wide an
 
 This project uses SvelteKit and webR (R in WebAssembly).
 
-### Getting Started
+### AI Declaration
 
-1. Install dependencies:
-   ```bash
-   pnpm install
-   ```
-
-2. Start the development server:
-   ```bash
-   pnpm dev
-   ```
-
-3. Build for production:
-   ```bash
-   pnpm build
-   ```
+Mostly built using Claude.
