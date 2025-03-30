@@ -44,6 +44,7 @@
 	"dependencies": {
 		"@r-wasm/webr": "^0.2.0",
 		"@types/papaparse": "^5.3.15",
+		"lucide-svelte": "^0.485.0",
 		"papaparse": "^5.5.2",
 		"react": "^18.0.0",
 		"react-dom": "^18.0.0",

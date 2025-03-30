@@ -1,8 +1,12 @@
-<script>
+<script lang="ts">
   import { onMount } from 'svelte';
   import { WebR } from 'webr';
   import Papa from 'papaparse';
   import Logo from '$lib/assets/logo.webp'
+  import { Hash, CheckSquareIcon, CaseSensitive } from 'lucide-svelte';
+  import { CalendarIcon } from 'lucide-svelte';
+
+  import { detectColumnType } from './utils';
 
   // State variables
   let webR = null;
@@ -185,6 +189,22 @@
     idColumns = idColumns.includes(column)
       ? idColumns.filter(col => col !== column)
       : [...idColumns, column];
+  }
+
+  function selectAllColumns() {
+    selectedColumns = [...columns];
+  }
+
+  function unselectAllColumns() {
+    selectedColumns = [];
+  }
+
+  function selectAllIdColumns() {
+    idColumns = columns.filter(col => col !== nameColumn && col !== valueColumn);
+  }
+
+  function unselectAllIdColumns() {
+    idColumns = [];
   }
 
   function togglePreview() {
@@ -495,9 +515,27 @@
               </div>
               
               <div>
+                <div class="flex items-center justify-between">
                 <label class="block text-[10px] font-medium text-gray-700 mb-1">
                   ID Columns
                 </label>
+                <div class="flex items-center gap-2 mb-2">
+                  <button 
+                    type="button"
+                    on:click={selectAllIdColumns}
+                    class="text-[10px] px-2 py-1 border border-gray-200 hover:bg-gray-50"
+                  >
+                    Select All
+                  </button>
+                  <button 
+                    type="button"
+                    on:click={unselectAllIdColumns}
+                    class="text-[10px] px-2 py-1 border border-gray-200 hover:bg-gray-50"
+                  >
+                    Unselect All
+                  </button>
+                </div>
+                </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
                   {#each columns as column}
                     {#if column !== nameColumn && column !== valueColumn}
@@ -509,8 +547,19 @@
                           on:change={() => toggleIdColumn(column)}
                           class="h-2.5 w-2.5 text-black focus:ring-black border-gray-300 rounded"
                         >
-                        <label for={`id-${column}`} class="ml-1 text-[10px] text-gray-700">
+                        <label for={`id-${column}`} class="ml-1 text-[10px] text-gray-700 flex items-center gap-1 group relative">
                           {column}
+                          {#if data}
+                            {#if detectColumnType(data, column) === 'numeric'}
+                              <Hash class="size-2 text-gray-500" title="Numeric column" />
+                            {:else if detectColumnType(data, column) === 'categorical'}
+                              <CaseSensitive class="size-3 text-gray-500" title="Categorical column" />
+                            {:else if detectColumnType(data, column) === 'date'}
+                              <CalendarIcon class="size-3 text-gray-500" title="Date column" />
+                            {:else if detectColumnType(data, column) === 'boolean'}
+                              <CheckSquareIcon class="size-3 text-gray-500" title="Boolean column" />
+                            {/if}
+                          {/if}
                         </label>
                       </div>
                     {/if}
@@ -523,6 +572,22 @@
               <label class="block text-[10px] font-medium text-gray-700 mb-1">
                 Select Columns
               </label>
+              <div class="flex items-center gap-2 mb-2">
+                <button 
+                  type="button"
+                  on:click={selectAllColumns}
+                  class="text-[10px] px-2 py-1 border border-gray-200 hover:bg-gray-50"
+                >
+                  Select All
+                </button>
+                <button 
+                  type="button"
+                  on:click={unselectAllColumns}
+                  class="text-[10px] px-2 py-1 border border-gray-200 hover:bg-gray-50"
+                >
+                  Unselect All
+                </button>
+              </div>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-1">
                 {#each columns as column}
                   <div class="flex items-center">
@@ -533,8 +598,19 @@
                       on:change={() => toggleColumnSelection(column)}
                       class="h-2.5 w-2.5 text-black focus:ring-black border-gray-300 rounded"
                     >
-                    <label for={`col-${column}`} class="ml-1 text-[10px] text-gray-700">
+                    <label for={`col-${column}`} class="ml-1 text-[10px] text-gray-700 flex items-center gap-1 group relative">
                       {column}
+                      {#if data}
+                        {#if detectColumnType(data, column) === 'numeric'}
+                          <Hash class="size-2 text-gray-500" title="Numeric column" />
+                        {:else if detectColumnType(data, column) === 'categorical'}
+                          <CaseSensitive class="size-3 text-gray-500" title="Categorical column" />
+                        {:else if detectColumnType(data, column) === 'date'}
+                          <CalendarIcon class="size-3 text-gray-500" title="Date column" />
+                        {:else if detectColumnType(data, column) === 'boolean'}
+                          <CheckSquareIcon class="size-3 text-gray-500" title="Boolean column" />
+                        {/if}
+                      {/if}
                     </label>
                   </div>
                 {/each}
