@@ -27,6 +27,9 @@
   let transformedData = null;
   let transformedCsv = '';
   let showPreview = true;
+  /** @type {string[]} */
+  let loadingMessages = [];
+  let currentMessageIndex = 0;
   
   // Example data for visual previews
   const wideExample = [
@@ -45,8 +48,17 @@
 
   onMount(async () => {
     try {
+      loadingMessages = [
+        'Initializing WebR...',
+        'Loading required packages...',
+        'Setting up environment...',
+        'Almost ready...'
+      ];
+      currentMessageIndex = 0;
+      
       webR = new WebR();
       await webR.init();
+      currentMessageIndex = 1;
       
       // Load required R packages
       await webR.evalR(`
@@ -56,11 +68,20 @@
         library(dplyr)
         library(readr)
       `);
+      currentMessageIndex = 2;
       
+      // Add a small delay to show the last message
+      await new Promise(resolve => setTimeout(resolve, 500));
+      currentMessageIndex = 3;
+      
+      // Final delay before removing loading state
+      await new Promise(resolve => setTimeout(resolve, 500));
       isLoading = false;
+      loadingMessages = [];
     } catch (error) {
       errorMessage = `Error initializing webR: ${error instanceof Error ? error.message : String(error)}`;
       isLoading = false;
+      loadingMessages = [];
     }
   });
 
@@ -397,12 +418,28 @@
     </div>
 
     {#if isLoading}
-      <div class="flex justify-center items-center p-3 bg-gray-50 text-black">
-        <svg class="animate-spin -ml-1 mr-1 h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span class="text-xs">Processing...</span>
+      <div 
+        class="flex flex-col items-center justify-center p-3 bg-gray-50 text-black min-h-[100px] relative transition-opacity duration-500"
+        style="opacity: 1"
+      >
+        <div class="flex flex-col w-full items-center">
+          <svg class="animate-spin h-3 w-3 mb-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <div class="h-4 w-full text-center relative">
+            {#each loadingMessages as message, i}
+              {#if i === currentMessageIndex}
+                <div 
+                  class="text-xs text-gray-500 transition-all duration-700 absolute left-1/2 -translate-x-1/2"
+                  style="opacity: 1"
+                >
+                  {message}
+                </div>
+              {/if}
+            {/each}
+          </div>
+        </div>
       </div>
     {:else if errorMessage}
       <div class="p-3 bg-red-50 border-l-2 border-red-500 text-red-700">
